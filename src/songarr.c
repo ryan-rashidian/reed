@@ -11,7 +11,7 @@
 #include <string.h>
 #include "songarr.h"
 
-#define FILEARR_INIT_CAP 16
+#define FILEARR_INIT_CAP 32
 
 int compare_songnames(const void *p, const void *q)
 {
