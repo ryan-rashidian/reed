@@ -17,7 +17,7 @@
 #define TITLE_MENU "> Songs <"
 #define SUBTITLE_MENU "> ('q' - quit) reed 0.1.0 <"
 #define TITLE_VIEW "> Playing <"
-#define MAX_SONGTITLE_LEN 128
+#define MAX_SONGTITLE_LEN 512
 
 bool running;
 SongArr *songarr;
