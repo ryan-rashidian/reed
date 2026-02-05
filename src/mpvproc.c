@@ -88,6 +88,8 @@ int mpv_init(void)
             "--no-terminal",
             (char *) NULL
         );
+        fprintf(stderr, "Error, unable to start MPV\n");
+        _exit(127); /* 127: Command not found in PATH */
     } else {
         if (!wait_for_socket()) {
             return -1;
