@@ -6,15 +6,15 @@ Wraps MPV process (communicating over a UDS), does not use `libmpv`.
 
 Written in C with the `ncurses` library.
 
-**Work in Progress**: Features may break, be replaced, and bugs may be encountered. This is a personal project for fun/learning, and I may keep refining/adding to it in the future.
+**Work in Progress**: Features may break, be replaced, and bugs may be encountered. This is a personal project for fun/learning, and I may keep working on it in the future.
 
 **Compatibility**: Not cross-platform. Only works on GNU/Linux (Potentially other POSIX compliant operating systems). Also depends on an installation of MPV.
 
 ## Features
 
-- Menu scrolling without using `menu.h` library.
-- Window re-sizing.
-- Live updated Terminal-UI. (Render on MPV events: only end-of-song for now, but may poll in the future for next track, or playback time.)
+- Menu scrolling without using the `menu.h` library.
+- Automatic window re-sizing.
+- Live updated Terminal-UI.
 
 ## Build
 
@@ -42,27 +42,37 @@ reed playlist1
 
 ## Controls
 
-- Scroll down:   ARROW_DOWN or 'j'
-- Scroll up:     ARROW_UP or 'k'
-- Scroll bottom: 'g'
-- Scroll top:    'G'
-- Select/Play:   ENTER
-- Pause cycle:   SPACE or 'p'
-- Quit:          'q'
+Scroll up:
+- ARROW_UP
+- 'k'
+Scroll down:
+- ARROW_DOWN
+- 'j'
+Scroll top:
+- 'G'
+Scroll bottom:
+- 'g'
+Select/Play:
+- ENTER/RETURN
+Pause toggle:
+- SPACE
+- 'p'
+Auto-play toggle:
+- 'a'
+Quit:
+- 'q'
 
 ## To-Do
 
 - Help option
-- Playlist tab
-- Shuffle/Auto-play
+- Playlist/directory organization
+- Shuffle
 - Only load audio files into the menu; ignore other types.
-- Better error handling, safety.
-- Controls: FF, RW, NEXT, PREV
-- Clean up code/readability.
+- Better error handling/safety.
+- Controls: FF, RW, NEXT, PREV, VOL+, VOL-
 
 ## Ideas
 
 - Render time-stamp.
 - Colors and attributes.
-- Organize songs by artist/directory. By directory is simple and avoids parsing file-name variations (e.g. "1. Artist - Song", "Artist_Song", "Song - Album - Artist", etc.)
 
