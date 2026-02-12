@@ -8,8 +8,8 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "mpvproc.h"
 #include "songarr.h"
@@ -19,9 +19,11 @@
 #define TITLE_VIEW "> Playing <"
 #define MAX_SONGTITLE_LEN 512
 
-bool running;
-SongArr *songarr;
+#define LOOP_RUN 1
+#define LOOP_STOP 0
 
+volatile sig_atomic_t running = LOOP_RUN;
+SongArr *songarr;
 struct pollfd fds[2];
 
 struct PlayerState {
@@ -51,8 +53,6 @@ struct UI {
     RowCol max;
     RowCol curs;
 } ui = { .curs = {1, 2}, .menu.offset_idx = 0 };
-
-void program_destroy(void);
 
 void ui_init_core(void)
 {
@@ -336,7 +336,7 @@ void switch_keypress(int key)
             break;
         }
         case 'q': {
-            running = false;
+            running = LOOP_STOP;
             break;
         }
         default: break;
@@ -358,7 +358,7 @@ void handle_mpv_properties(void)
     }
 }
 
-void ui_event_loop(void)
+void event_loop(void)
 {
     /* Draw initial screen */
     update_maxyx();
@@ -370,7 +370,6 @@ void ui_event_loop(void)
 
     /* Enter event loop */
     int ch;
-    running = true;
     while (running) {
         cursor_move_pos();
         wrefresh(ui.menu.w);
@@ -393,7 +392,7 @@ void ui_destroy(void)
     endwin();
 }
 
-void program_destroy(void)
+void cleanup(void)
 {
     ui_destroy();
     mpv_terminate();
@@ -403,8 +402,7 @@ void program_destroy(void)
 void handle_sigint(int sig)
 {
     (void)sig;
-    program_destroy();
-    exit(0);
+    running = LOOP_STOP;
 }
 
 int main(int argc, char *argv[])
@@ -413,7 +411,16 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Usage: %s <music-dirname>\n", argv[0]);
         return 1;
     }
-    (void)signal(SIGINT, handle_sigint);
+
+    /* Setup SIGINT handler */
+    struct sigaction sa;
+    sa.sa_handler = handle_sigint;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
+        fprintf(stderr, "Error, sigaction failed\n");
+        return 1;
+    }
 
     /* Search dir and build song playlist */
     songarr = songarr_init(argv[1]);
@@ -422,7 +429,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* Setup polls for reading MPV properties */
+    /* Setup polling. */
     int mpv_fd = mpv_init();
     if (mpv_fd == -1) {
         fprintf(stderr, "Error initializing MPV\n");
@@ -431,16 +438,16 @@ int main(int argc, char *argv[])
     }
     fds[0].fd = mpv_fd;
     fds[0].events = POLLIN;
-    fds[1].fd = 0;
+    fds[1].fd = STDIN_FILENO;
     fds[1].events = POLLIN;
 
-    /* Initialize UI and enter event loop */
+    /* Initialize ncurses */
     ui_init_core();
     ui_init_windows();
-    ui_event_loop();
 
-    /* Cleanup */
-    program_destroy();
+    event_loop();
+
+    cleanup();
     return 0;
 }
 
