@@ -43,24 +43,39 @@ reed playlist1
 ## Controls
 
 Scroll up:
-- ARROW_UP
-- 'k'
+
+- `ARROW_UP`
+- `k`
+
 Scroll down:
-- ARROW_DOWN
-- 'j'
+
+- `ARROW_DOWN`
+- `j`
+
 Scroll top:
-- 'G'
+
+- `G`
+
 Scroll bottom:
-- 'g'
+
+- `g`
+
 Select/Play:
-- ENTER/RETURN
+
+- `ENTER`/`RETURN`
+
 Pause toggle:
-- SPACE
-- 'p'
+
+- `SPACE`
+- `p`
+
 Auto-play toggle:
-- 'a'
+
+- `a`
+
 Quit:
-- 'q'
+
+- `q`
 
 ## To-Do
 
