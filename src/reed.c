@@ -15,7 +15,7 @@
 #include "songarr.h"
 
 #define TITLE_MENU "> Songs <"
-#define SUBTITLE_MENU "> ('q' - quit) reed 0.1.0 <"
+#define SUBTITLE_MENU "> ('q' - quit) reed 0.2.0 <"
 #define TITLE_VIEW "> Playing <"
 #define MAX_SONGTITLE_LEN 512
 
@@ -29,8 +29,10 @@ struct pollfd fds[2];
 struct PlayerState {
     bool playing;
     bool paused;
+    bool autoplay;
+    int current_track_idx;
     char current_track[MAX_SONGTITLE_LEN+1];
-} player = { .paused = false, .current_track[0] = '\0' };
+} player = { .paused = false, .autoplay = false, .current_track[0] = '\0' };
 
 typedef struct {
     int y, x;
@@ -167,9 +169,14 @@ void draw_viewer(void)
         }
     }
 
+    if (player.autoplay) {
+        int ctr_x = x/2 - 6; /* Centering for "[Autoplay]" */
+        mvwprintw(ui.view.w, y-2, ctr_x, "[Auto-Play]");
+    }
+
     if (player.paused) {
-        int pctr_x = x/2 - 5; /* midpoint - strlen("> PAUSE <") / 2 */
-        mvwprintw(ui.view.w, y-1, pctr_x, "> PAUSE <");
+        int ctr_x = x/2 - 5; /* Centering for "> PAUSE <" */
+        mvwprintw(ui.view.w, y-1, ctr_x, "> PAUSE <");
     }
 }
 
@@ -283,6 +290,18 @@ void cursor_move_pos(void)
     wmove(ui.menu.w, ui.curs.y, ui.curs.x);
 }
 
+void event_playsong(int idx) 
+{
+    if (idx + 1 > (int)songarr->size) {
+        player.playing = false;
+        return;
+    }
+    mpv_load_song(songarr->arr[idx].path);
+    player.playing = true;
+    player.current_track_idx = idx;
+    strcpy(player.current_track, songarr->arr[idx].name);
+}
+
 void switch_keypress(int key)
 {
     switch (key) {
@@ -318,9 +337,7 @@ void switch_keypress(int key)
         case '\n':
         case KEY_ENTER: {
             int idx = ui.menu.offset_idx + ui.curs.y - 1;
-            mpv_load_song(songarr->arr[idx].path);
-            player.playing = true;
-            strcpy(player.current_track, songarr->arr[idx].name);
+            event_playsong(idx);
             clear_window(ui.view.w);
             draw_viewer();
             wrefresh(ui.view.w);
@@ -330,6 +347,13 @@ void switch_keypress(int key)
         case 'p': {
             mpv_cycle_pause();
             player.paused = !player.paused;
+            clear_window(ui.view.w);
+            draw_viewer();
+            wrefresh(ui.view.w);
+            break;
+        }
+        case 'a': {
+            player.autoplay = !player.autoplay;
             clear_window(ui.view.w);
             draw_viewer();
             wrefresh(ui.view.w);
@@ -346,12 +370,17 @@ void switch_keypress(int key)
 void handle_mpv_properties(void)
 {
     MPVProp p = mpv_property(fds[0].fd);
-    if (p == PROP_SOF) {
+    if (p == PROP_SOF && !player.playing) {
+        player.playing = true;
         /* Placeholder; Implement for autoplay/playlists */
         ;
     } else if (p == PROP_EOF) {
         /* End of song reached */
-        player.playing = false;
+        if (player.autoplay) {
+            event_playsong(player.current_track_idx+1);
+        } else {
+            player.playing = false;
+        }
         clear_window(ui.view.w);
         draw_viewer();
         wrefresh(ui.view.w);
@@ -422,7 +451,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* Search dir and build song playlist */
+    /* Build song playlist */
     songarr = songarr_init(argv[1]);
     if (songarr == NULL) {
         fprintf(stderr, "Error reading from directory: %s\n", argv[1]);
