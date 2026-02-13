@@ -8,14 +8,16 @@
 #include <poll.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "mpvproc.h"
 #include "songarr.h"
 
 #define TITLE_MENU "> Songs <"
-#define SUBTITLE_MENU "> ('q' - quit) reed 0.2.0 <"
+#define SUBTITLE_MENU "> ('q' - quit) reed 0.3.0 <"
 #define TITLE_VIEW "> Playing <"
 #define MAX_SONGTITLE_LEN 512
 
@@ -30,9 +32,17 @@ struct PlayerState {
     bool playing;
     bool paused;
     bool autoplay;
-    int current_track_idx;
-    char current_track[MAX_SONGTITLE_LEN+1];
-} player = { .paused = false, .autoplay = false, .current_track[0] = '\0' };
+    bool shuffle;
+    int *order;
+    int shuffle_idx;
+    int curr_idx;
+    char curr_track[MAX_SONGTITLE_LEN+1];
+} player = {
+    .paused = false,
+    .autoplay = false,
+    .shuffle = false,
+    .curr_track[0] = '\0'
+};
 
 typedef struct {
     int y, x;
@@ -56,6 +66,20 @@ struct UI {
     RowCol curs;
 } ui = { .curs = {1, 2}, .menu.offset_idx = 0 };
 
+bool player_init(size_t n_songs)
+{
+    player.order = malloc(n_songs * sizeof(int));
+    if (player.order == NULL) {
+        fprintf(stderr, "Failed to allocate player.order array\n");
+        return false;
+    }
+
+    for (int i = 0; i < (int)n_songs; i++) {
+        player.order[i] = i;
+    }
+    return true;
+}
+
 void ui_init_core(void)
 {
     (void) initscr();
@@ -76,6 +100,13 @@ void ui_init_windows(void)
     keypad(ui.view.w, TRUE);
     nodelay(ui.menu.w, TRUE);
     nodelay(ui.view.w, TRUE);
+}
+
+void ui_destroy(void)
+{
+    delwin(ui.menu.w);
+    delwin(ui.view.w);
+    endwin();
 }
 
 void clear_window(WINDOW *w)
@@ -156,7 +187,7 @@ void draw_viewer(void)
 
     if (player.playing) {
         int max_cols = x - 2; /* -2 for border */
-        const char *name = player.current_track;
+        const char *name = player.curr_track;
         int track_len = strlen(name);
         if (track_len > max_cols) {
             char short_name[max_cols+1];
@@ -169,7 +200,10 @@ void draw_viewer(void)
         }
     }
 
-    if (player.autoplay) {
+    if (player.shuffle) {
+        int ctr_x = x/2 - 5; /* Centering for "[Shuffle]" */
+        mvwprintw(ui.view.w, y-2, ctr_x, "[Shuffle]");
+    } else if (player.autoplay) {
         int ctr_x = x/2 - 6; /* Centering for "[Autoplay]" */
         mvwprintw(ui.view.w, y-2, ctr_x, "[Auto-Play]");
     }
@@ -292,14 +326,30 @@ void cursor_move_pos(void)
 
 void event_playsong(int idx) 
 {
-    if (idx + 1 > (int)songarr->size) {
+    if (idx >= (int)songarr->size) {
         player.playing = false;
         return;
     }
     mpv_load_song(songarr->arr[idx].path);
     player.playing = true;
-    player.current_track_idx = idx;
-    strcpy(player.current_track, songarr->arr[idx].name);
+    player.curr_idx = idx;
+    strncpy(
+        player.curr_track,
+        songarr->arr[idx].name,
+        (size_t)MAX_SONGTITLE_LEN
+    );
+}
+
+void event_shuffle(void)
+{
+    for (int i = (int)songarr->size - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int tmp = player.order[i];
+        player.order[i] = player.order[j];
+        player.order[j] = tmp;
+    }
+    player.shuffle_idx = 0;
+    player.shuffle = true;
 }
 
 void switch_keypress(int key)
@@ -336,6 +386,9 @@ void switch_keypress(int key)
         }
         case '\n':
         case KEY_ENTER: {
+            if (player.shuffle) {
+                player.shuffle = false;
+            }
             int idx = ui.menu.offset_idx + ui.curs.y - 1;
             event_playsong(idx);
             clear_window(ui.view.w);
@@ -359,6 +412,14 @@ void switch_keypress(int key)
             wrefresh(ui.view.w);
             break;
         }
+        case 's': {
+            event_shuffle();
+            event_playsong(player.order[player.shuffle_idx]);
+            clear_window(ui.view.w);
+            draw_viewer();
+            wrefresh(ui.view.w);
+            break;
+        }
         case 'q': {
             running = LOOP_STOP;
             break;
@@ -367,17 +428,26 @@ void switch_keypress(int key)
     }
 }
 
+void event_eof_shuffle(void)
+{
+    player.shuffle_idx++;
+    if (player.shuffle_idx >= (int)songarr->size) {
+        player.autoplay = false;
+        player.playing = false;
+    } else {
+        event_playsong(player.order[player.shuffle_idx]);
+    }
+}
+
 void handle_mpv_properties(void)
 {
     MPVProp p = mpv_property(fds[0].fd);
-    if (p == PROP_SOF && !player.playing) {
-        player.playing = true;
-        /* Placeholder; Implement for autoplay/playlists */
-        ;
-    } else if (p == PROP_EOF) {
+    if (p == PROP_EOF) {
         /* End of song reached */
-        if (player.autoplay) {
-            event_playsong(player.current_track_idx+1);
+        if (player.shuffle) {
+            event_eof_shuffle();
+        } else if (player.autoplay) {
+            event_playsong(player.curr_idx+1);
         } else {
             player.playing = false;
         }
@@ -414,17 +484,11 @@ void event_loop(void)
     }
 }
 
-void ui_destroy(void)
-{
-    delwin(ui.menu.w);
-    delwin(ui.view.w);
-    endwin();
-}
-
 void cleanup(void)
 {
     ui_destroy();
     mpv_terminate();
+    free(player.order);
     songarr_destroy(songarr);
 }
 
@@ -440,6 +504,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Usage: %s <music-dirname>\n", argv[0]);
         return 1;
     }
+    srand((unsigned) time(NULL));
 
     /* Setup SIGINT handler */
     struct sigaction sa;
@@ -455,6 +520,12 @@ int main(int argc, char *argv[])
     songarr = songarr_init(argv[1]);
     if (songarr == NULL) {
         fprintf(stderr, "Error reading from directory: %s\n", argv[1]);
+        return 1;
+    }
+
+    /* Setup player struct */
+    if (!player_init(songarr->size)) {
+        fprintf(stderr, "Error initializing player\n");
         return 1;
     }
 
