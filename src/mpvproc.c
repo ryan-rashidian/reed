@@ -18,7 +18,6 @@
 /* Based on MPV JSON-based IPC protocol */
 #define STR_PROP_EOF "\"event\":\"end-file\""
 #define STR_PROP_EOF_REASON "\"reason\":\"eof\""
-#define STR_PROP_SOF "\"event\":\"start-file\""
 
 #define CMD_PAUSE "{ \"command\": " \
     "[\"cycle\", \"pause\"] }\n"
@@ -117,7 +116,6 @@ void mpv_cycle_pause(void)
 typedef enum {
     PROP_NONE,
     PROP_EOF,
-    PROP_SOF,
 } MPVProp;
 
 MPVProp mpv_property(int fd)
@@ -130,10 +128,6 @@ MPVProp mpv_property(int fd)
             strstr(haystack, STR_PROP_EOF_REASON)) {
             return PROP_EOF;
         }
-        /* Implement for autoplay/playlists */
-        //if (strstr(haystack, STR_PROP_SOF)) {
-        //    return PROP_SOF;
-        //}
     }
     return PROP_NONE;
 }
