@@ -455,6 +455,7 @@ void event_eof_shuffle(void)
 {
     player.shuffle_idx++;
     if (player.shuffle_idx >= (int)songarr->size) {
+        player.shuffle = false;
         player.autoplay = false;
         player.playing = false;
     } else {
