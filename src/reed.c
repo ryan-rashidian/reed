@@ -24,6 +24,11 @@
 #define LOOP_RUN 1
 #define LOOP_STOP 0
 
+bool songarr_initialized = false;
+bool player_initialized = false;
+bool mpv_initialized = false;
+bool ncurses_initialized = false;
+
 volatile sig_atomic_t running = LOOP_RUN;
 SongArr *songarr;
 struct pollfd fds[2];
@@ -80,26 +85,44 @@ bool player_init(size_t n_songs)
     return true;
 }
 
-void ui_init_core(void)
+bool ui_init_core(void)
 {
-    (void) initscr();
-    (void) cbreak();
+    if (initscr() == NULL) {
+        fprintf(stderr, "initscr failed to create main window\n");
+        return false;
+    }
+    if (cbreak() == ERR) {
+        fprintf(stderr, "cbreak failed to disable line buffering\n");
+        endwin();
+        return false;
+    }
     (void) noecho();
     keypad(stdscr, TRUE);
     curs_set(1);
+    return true;
 }
 
-void ui_init_windows(void)
+bool ui_init_windows(void)
 {
     int y, x;
     getmaxyx(stdscr, y, x);
 
     ui.menu.w = newwin(y, x/2, 0, 0);
+    if (ui.menu.w == NULL) {
+        fprintf(stderr, "newwin failed to create menu window\n");
+        return false;
+    }
     ui.view.w = newwin(y, x/2, 0, (x/2)+(x%2));
+    if (ui.view.w == NULL) {
+        fprintf(stderr, "newwin failed to create view window\n");
+        delwin(ui.menu.w);
+        return false;
+    }
     keypad(ui.menu.w, TRUE);
     keypad(ui.view.w, TRUE);
     nodelay(ui.menu.w, TRUE);
     nodelay(ui.view.w, TRUE);
+    return true;
 }
 
 void ui_destroy(void)
@@ -486,10 +509,18 @@ void event_loop(void)
 
 void cleanup(void)
 {
-    ui_destroy();
-    mpv_terminate();
-    free(player.order);
-    songarr_destroy(songarr);
+    if (ncurses_initialized) {
+        ui_destroy();
+    }
+    if (mpv_initialized) {
+        mpv_terminate();
+    }
+    if (player_initialized) {
+        free(player.order);
+    }
+    if (songarr_initialized) {
+        songarr_destroy(songarr);
+    }
 }
 
 void handle_sigint(int sig)
@@ -522,28 +553,44 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Error reading from directory: %s\n", argv[1]);
         return 1;
     }
+    songarr_initialized = true;
 
     /* Setup player struct */
     if (!player_init(songarr->size)) {
         fprintf(stderr, "Error initializing player\n");
+        cleanup();
         return 1;
     }
+    player_initialized = true;
 
-    /* Setup polling. */
+    /* Initialize MPV */
     int mpv_fd = mpv_init();
     if (mpv_fd == -1) {
         fprintf(stderr, "Error initializing MPV\n");
-        songarr_destroy(songarr);
+        cleanup();
         return 1;
     }
+    mpv_initialized = true;
+
+    /* Setup polling. */
     fds[0].fd = mpv_fd;
     fds[0].events = POLLIN;
     fds[1].fd = STDIN_FILENO;
     fds[1].events = POLLIN;
 
     /* Initialize ncurses */
-    ui_init_core();
-    ui_init_windows();
+    if (!ui_init_core()) {
+        fprintf(stderr, "Error initializing MPV\n");
+        cleanup();
+        return 1;
+    }
+    if (!ui_init_windows()) {
+        fprintf(stderr, "Error initializing MPV\n");
+        endwin();
+        cleanup();
+        return 1;
+    }
+    ncurses_initialized = true;
 
     event_loop();
 
