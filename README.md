@@ -12,9 +12,10 @@ Written in C with the `ncurses` library.
 
 ## Features
 
-- Menu scrolling without using the `menu.h` library.
-- Automatic window re-sizing.
-- Live updated Terminal-UI.
+- Menu scrolling (without `menu.h`)
+- Automatic window re-sizing
+- Shuffle/Auto-play
+- Live updated Terminal-UI
 
 ## Build
 
@@ -30,7 +31,7 @@ mv reed ~/bin/reed
 ## Usage
 
 > [!IMPORTANT]
-> Non-audio files may be registered by reed as an audio file in the menu. Until this is fixed, do not mix file types in the directory given to reed (and in any of its child directories). This program is not intended to be used with other multimedia file types, even if MPV supports them.
+> Non-audio-files may be registered by reed as an audio-file in the menu. Until this is fixed, do not mix file types in the directory given to reed (and in any of its child directories). This program is not intended to be used with other multimedia file types, even if MPV supports them.
 
 ```bash
 # Give the path to your music/playlist directory:
@@ -73,6 +74,10 @@ Auto-play toggle:
 
 - `a`
 
+Shuffle:
+
+- `s`
+
 Quit:
 
 - `q`
@@ -81,9 +86,7 @@ Quit:
 
 - Help option
 - Playlist/directory organization
-- Shuffle
-- Only load audio files into the menu; ignore other types.
-- Better error handling/safety.
+- Check file type; accept only audio-file.
 - Controls: FF, RW, NEXT, PREV, VOL+, VOL-
 
 ## Ideas
