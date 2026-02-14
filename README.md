@@ -12,9 +12,9 @@ Written in C with the `ncurses` library.
 
 ## Features
 
+- Shuffle/Auto-play
 - Menu scrolling (without `menu.h`)
 - Automatic window re-sizing
-- Shuffle/Auto-play
 - Live updated Terminal-UI
 
 ## Build
@@ -43,51 +43,29 @@ reed playlist1
 
 ## Controls
 
-Scroll up:
-
-- `ARROW_UP`
-- `k`
-
-Scroll down:
-
-- `ARROW_DOWN`
-- `j`
-
-Scroll top:
-
-- `G`
-
-Scroll bottom:
-
-- `g`
-
-Select/Play:
-
-- `ENTER`/`RETURN`
-
-Pause toggle:
-
-- `SPACE`
-- `p`
-
-Auto-play toggle:
-
-- `a`
-
-Shuffle:
-
-- `s`
-
-Quit:
-
-- `q`
+| Action | Key |
+| --- | --- |
+| Scroll+ | `ARROW_UP` / `k` |
+| Scroll- | `ARROW_DOWN` / `j` |
+| Scroll Top | `g` |
+| Scroll Bottom | `G` |
+| Select/Play | `ENTER` (`RETURN`) |
+| Pause (Toggle) | `SPACE` / `p` |
+| Autoplay (Toggle) | `a` |
+| Shuffle | `s` |
+| VOL+ | `+` / `=` |
+| VOL- | `-` |
+| SEEK+ | `RIGHT_ARROW` |
+| SEEK- | `LEFT_ARROW` |
+| NEXT | `.` |
+| PREV | `,` |
+| Quit | `q` |
 
 ## To-Do
 
 - Help option
 - Playlist/directory organization
 - Check file type; accept only audio-file.
-- Controls: FF, RW, NEXT, PREV, VOL+, VOL-
 
 ## Ideas
 
