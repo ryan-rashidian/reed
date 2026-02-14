@@ -17,7 +17,7 @@
 #include "songarr.h"
 
 #define TITLE_MENU "> Songs <"
-#define SUBTITLE_MENU "> ('q' - quit) reed 0.3.0 <"
+#define SUBTITLE_MENU "> ('q' - quit) reed 0.4.0 <"
 #define TITLE_VIEW "> Playing <"
 #define MAX_SONGTITLE_LEN 512
 
@@ -347,17 +347,28 @@ void cursor_move_pos(void)
     wmove(ui.menu.w, ui.curs.y, ui.curs.x);
 }
 
-void event_playsong(int idx) 
+int validate_idx(int idx)
 {
     if (idx >= (int)songarr->size) {
-        player.playing = false;
-        return;
+        return -1;
     } else if (idx < 0) {
         idx = 0;
     }
+    if (player.shuffle) {
+        player.shuffle_idx = idx;
+        idx = player.order[idx];
+    }
+    player.curr_idx = idx;
+    return idx;
+}
+
+void event_playsong(int idx) 
+{
+    if ((idx = validate_idx(idx)) == -1) {
+        return;
+    }
     mpv_load_song(songarr->arr[idx].path);
     player.playing = true;
-    player.curr_idx = idx;
     strncpy(
         player.curr_track,
         songarr->arr[idx].name,
@@ -381,10 +392,7 @@ int event_next(void)
 {
     int idx;
     if (player.shuffle) {
-        if (player.shuffle_idx + 1 >= (int)songarr->size) {
-            return -1;
-        }
-        idx = player.order[++player.shuffle_idx];
+        idx = player.shuffle_idx + 1;
     } else {
         idx = player.curr_idx + 1;
     }
@@ -395,11 +403,7 @@ int event_prev(void)
 {
     int idx;
     if (player.shuffle) {
-        player.shuffle_idx--;
-        if (player.shuffle_idx < 0) {
-            player.shuffle_idx = 0;
-        }
-        idx = player.order[player.shuffle_idx];
+        idx = player.shuffle_idx - 1;
     } else {
         idx = player.curr_idx - 1;
     }
@@ -487,7 +491,7 @@ void switch_keypress(int key)
                 break;
             }
             int idx = event_next();
-            if (idx == -1) {
+            if (idx >= (int)songarr->size) {
                 break;
             }
             event_playsong(idx);
@@ -514,7 +518,7 @@ void switch_keypress(int key)
         }
         case 's': {
             event_shuffle();
-            event_playsong(player.order[player.shuffle_idx]);
+            event_playsong(player.shuffle_idx);
             clear_window(ui.view.w);
             draw_viewer();
             wrefresh(ui.view.w);
@@ -528,15 +532,24 @@ void switch_keypress(int key)
     }
 }
 
-void event_eof_shuffle(void)
+void eof_event_shuffle(void)
 {
-    player.shuffle_idx++;
-    if (player.shuffle_idx >= (int)songarr->size) {
+    int idx = player.shuffle_idx + 1;
+    if (idx >= (int)songarr->size) {
+        player.playing = false;
         player.shuffle = false;
-        player.autoplay = false;
+    } else {
+        event_playsong(player.shuffle_idx+1);
+    }
+}
+
+void eof_event_autoplay(void)
+{
+    int idx = player.curr_idx + 1;
+    if (idx >= (int)songarr->size) {
         player.playing = false;
     } else {
-        event_playsong(player.order[player.shuffle_idx]);
+        event_playsong(player.curr_idx+1);
     }
 }
 
@@ -546,9 +559,9 @@ void handle_mpv_properties(void)
     if (p == PROP_EOF) {
         /* End of song reached */
         if (player.shuffle) {
-            event_eof_shuffle();
+            eof_event_shuffle();
         } else if (player.autoplay) {
-            event_playsong(player.curr_idx+1);
+            eof_event_autoplay();
         } else {
             player.playing = false;
         }
