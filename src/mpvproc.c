@@ -23,6 +23,10 @@
     "[\"cycle\", \"pause\"] }\n"
 #define CMD_LOAD  "{ \"command\": " \
     "[\"loadfile\", \"%s\", \"replace\"] }\n"
+#define CMD_SEEK  "{ \"command\": " \
+    "[\"seek\", %d, \"relative\"] }\n"
+#define CMD_VOL   "{ \"command\": " \
+    "[\"add\", \"volume\", %d] }\n"
 
 struct ProcMPV {
     pid_t pid;
@@ -111,6 +115,20 @@ void mpv_load_song(const char *path)
 void mpv_cycle_pause(void)
 {
     write(pmpv.fd, CMD_PAUSE, strlen(CMD_PAUSE));
+}
+
+void mpv_seek(int time)
+{
+    char buf[1024];
+    snprintf(buf, sizeof(buf), CMD_SEEK, time);
+    write(pmpv.fd, buf, strlen(buf));
+}
+
+void mpv_volume(int vol)
+{
+    char buf[1024];
+    snprintf(buf, sizeof(buf), CMD_VOL, vol);
+    write(pmpv.fd, buf, strlen(buf));
 }
 
 typedef enum {
