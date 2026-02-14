@@ -425,7 +425,7 @@ void switch_keypress(int key)
             cursor_scroll_up();
             break;
         }
-        case 'G': {
+        case 'g': {
             cursor_scroll_top();
             break;
         }
@@ -434,7 +434,7 @@ void switch_keypress(int key)
             cursor_scroll_down();
             break;
         }
-        case 'g': {
+        case 'G': {
             cursor_scroll_bottom();
             break;
         }
