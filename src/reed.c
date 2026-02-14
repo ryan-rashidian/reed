@@ -352,6 +352,8 @@ void event_playsong(int idx)
     if (idx >= (int)songarr->size) {
         player.playing = false;
         return;
+    } else if (idx < 0) {
+        idx = 0;
     }
     mpv_load_song(songarr->arr[idx].path);
     player.playing = true;
@@ -373,6 +375,35 @@ void event_shuffle(void)
     }
     player.shuffle_idx = 0;
     player.shuffle = true;
+}
+
+int event_next(void)
+{
+    int idx;
+    if (player.shuffle) {
+        if (player.shuffle_idx + 1 >= (int)songarr->size) {
+            return -1;
+        }
+        idx = player.order[++player.shuffle_idx];
+    } else {
+        idx = player.curr_idx + 1;
+    }
+    return idx;
+}
+
+int event_prev(void)
+{
+    int idx;
+    if (player.shuffle) {
+        player.shuffle_idx--;
+        if (player.shuffle_idx < 0) {
+            player.shuffle_idx = 0;
+        }
+        idx = player.order[player.shuffle_idx];
+    } else {
+        idx = player.curr_idx - 1;
+    }
+    return idx;
 }
 
 void switch_keypress(int key)
@@ -413,6 +444,52 @@ void switch_keypress(int key)
                 player.shuffle = false;
             }
             int idx = ui.menu.offset_idx + ui.curs.y - 1;
+            event_playsong(idx);
+            clear_window(ui.view.w);
+            draw_viewer();
+            wrefresh(ui.view.w);
+            break;
+        }
+        case KEY_LEFT: {
+            if (player.playing) {
+                mpv_seek(-5);
+            }
+            break;
+        }
+        case KEY_RIGHT: {
+            if (player.playing) {
+                mpv_seek(5);
+            }
+            break;
+        }
+        case '+':
+        case '=': {
+            mpv_volume(5);
+            break;
+        }
+        case '-': {
+            mpv_volume(-5);
+            break;
+        }
+        case ',': {
+            if (!player.playing) {
+                break;
+            }
+            int idx = event_prev();
+            event_playsong(idx);
+            clear_window(ui.view.w);
+            draw_viewer();
+            wrefresh(ui.view.w);
+            break;
+        }
+        case '.': {
+            if (!player.playing) {
+                break;
+            }
+            int idx = event_next();
+            if (idx == -1) {
+                break;
+            }
             event_playsong(idx);
             clear_window(ui.view.w);
             draw_viewer();
