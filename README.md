@@ -55,8 +55,8 @@ reed playlist1
 | Shuffle | `s` |
 | VOL+ | `+` / `=` |
 | VOL- | `-` |
-| SEEK+ | `RIGHT_ARROW` |
-| SEEK- | `LEFT_ARROW` |
+| SEEK+ | `ARROW_RIGHT` |
+| SEEK- | `ARROW_LEFT` |
 | NEXT | `.` |
 | PREV | `,` |
 | Quit | `q` |
