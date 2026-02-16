@@ -17,7 +17,7 @@
 #include "songarr.h"
 
 #define TITLE_MENU "> Songs <"
-#define SUBTITLE_MENU "> ('q' - quit) reed 0.4.0 <"
+#define SUBTITLE_MENU "> ('q' - quit) reed 0.5.0 <"
 #define TITLE_VIEW "> Playing <"
 #define MAX_SONGTITLE_LEN 512
 
@@ -125,6 +125,16 @@ bool ui_init_windows(void)
     return true;
 }
 
+void ui_init_colors(void)
+{
+    if (has_colors()) {
+        start_color();
+        use_default_colors();
+        init_pair(1, COLOR_BLUE,    COLOR_BLACK);
+        init_pair(2, COLOR_MAGENTA, COLOR_BLACK);
+    }
+}
+
 void ui_destroy(void)
 {
     delwin(ui.menu.w);
@@ -184,6 +194,7 @@ void draw_menu(void)
     int max_cols = x - 5; /* -2 for border, -3 for " > " */
     int max_rows = y - 2; /* -2 for border */
     int j = ui.menu.offset_idx;
+    wattrset(ui.menu.w, COLOR_PAIR(1));
     for (int row = 0; row < max_rows && j < (int)songarr->size; row++, j++) {
         const char *name = songarr->arr[j].name;
         int str_len = strlen(name);
@@ -195,6 +206,7 @@ void draw_menu(void)
             mvwprintw(ui.menu.w, row+1, 1, " > %s", name);
         }
     }
+    wattroff(ui.menu.w, COLOR_PAIR(1));
 }
 
 void draw_viewer(void)
@@ -212,6 +224,7 @@ void draw_viewer(void)
         int max_cols = x - 2; /* -2 for border */
         const char *name = player.curr_track;
         int track_len = strlen(name);
+        wattrset(ui.view.w, COLOR_PAIR(1) | A_BOLD);
         if (track_len > max_cols) {
             char short_name[max_cols+1];
             snprintf(short_name, max_cols+1, "%s", name);
@@ -221,14 +234,19 @@ void draw_viewer(void)
             int track_ctr_x = x/2 - offset;
             mvwprintw(ui.view.w, y/2, track_ctr_x, "%s", name);
         }
+        wattroff(ui.view.w, COLOR_PAIR(1) | A_BOLD);
     }
 
     if (player.shuffle) {
+        wattrset(ui.view.w, COLOR_PAIR(2));
         int ctr_x = x/2 - 5; /* Centering for "[Shuffle]" */
         mvwprintw(ui.view.w, y-2, ctr_x, "[Shuffle]");
+        wattroff(ui.view.w, COLOR_PAIR(2));
     } else if (player.autoplay) {
+        wattrset(ui.view.w, COLOR_PAIR(2));
         int ctr_x = x/2 - 6; /* Centering for "[Autoplay]" */
         mvwprintw(ui.view.w, y-2, ctr_x, "[Auto-Play]");
+        wattroff(ui.view.w, COLOR_PAIR(2));
     }
 
     if (player.paused) {
@@ -681,6 +699,7 @@ int main(int argc, char *argv[])
         cleanup();
         return 1;
     }
+    ui_init_colors();
     ncurses_initialized = true;
 
     event_loop();
