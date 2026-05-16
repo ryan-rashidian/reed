@@ -3,13 +3,15 @@
  * MPV music player TUI implementated with ncurses.
  */
 
-#include <ncurses.h>
-#include <poll.h>
-#include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include <ncurses.h>
+#include <poll.h>
+#include <signal.h>
 #include <unistd.h>
 
 #include "mpvproc.h"
@@ -20,12 +22,15 @@
 #define TITLE_VIEW "> Playing <"
 #define MAX_SONGTITLE_LEN 512
 
+#define BORDER_SIZE 2
+#define CURSOR_SIZE 3
+
 #define LOOP_RUN 1
 #define LOOP_STOP 0
 
 bool songarr_initialized = false;
-bool player_initialized = false;
-bool mpv_initialized = false;
+bool player_initialized  = false;
+bool mpv_initialized     = false;
 bool ncurses_initialized = false;
 
 volatile sig_atomic_t running = LOOP_RUN;
@@ -98,6 +103,7 @@ bool ui_init_core(void)
     (void) noecho();
     keypad(stdscr, TRUE);
     curs_set(1);
+
     return true;
 }
 
@@ -121,6 +127,7 @@ bool ui_init_windows(void)
     keypad(ui.view.w, TRUE);
     nodelay(ui.menu.w, TRUE);
     nodelay(ui.view.w, TRUE);
+
     return true;
 }
 
@@ -174,24 +181,10 @@ void update_maxyx(void)
     getmaxyx(ui.view.w, ui.view.max.y, ui.view.max.x);
 }
 
-void draw_menu(void)
+void draw_menu_items(void)
 {
-    int y = ui.menu.max.y;
-    int x = ui.menu.max.x;
-    int offset;
-    int title_len = strlen(TITLE_MENU);
-    offset = (title_len/2) + (title_len%2);
-    int title_ctr_x = x/2 - offset;
-    int subtitle_len = strlen(SUBTITLE_MENU);
-    offset = (subtitle_len/2) + (subtitle_len%2);
-    int subtitle_ctr_x = x/2 - offset;
-
-    mvwprintw(ui.menu.w, 0, title_ctr_x, "%s", TITLE_MENU);
-    mvwprintw(ui.menu.w, y-1, subtitle_ctr_x, "%s", SUBTITLE_MENU);
-
-    /* Draw menu items */
-    int max_cols = x - 5; /* -2 for border, -3 for " > " */
-    int max_rows = y - 2; /* -2 for border */
+    int max_cols = ui.menu.max.x - BORDER_SIZE - CURSOR_SIZE;
+    int max_rows = ui.menu.max.y - BORDER_SIZE;
     int j = ui.menu.offset_idx;
     wattrset(ui.menu.w, COLOR_PAIR(1));
     for (int row = 0; row < max_rows && j < (int)songarr->size; row++, j++) {
@@ -208,9 +201,30 @@ void draw_menu(void)
     wattroff(ui.menu.w, COLOR_PAIR(1));
 }
 
-void draw_viewer(void)
+void draw_menu_titles(void)
 {
-    int y = ui.view.max.y;
+    int y = ui.menu.max.y;
+    int x = ui.menu.max.x;
+    int offset;
+    int title_len = strlen(TITLE_MENU);
+    offset = (title_len/2) + (title_len%2);
+    int title_ctr_x = x/2 - offset;
+    int subtitle_len = strlen(SUBTITLE_MENU);
+    offset = (subtitle_len/2) + (subtitle_len%2);
+    int subtitle_ctr_x = x/2 - offset;
+
+    mvwprintw(ui.menu.w, 0, title_ctr_x, "%s", TITLE_MENU);
+    mvwprintw(ui.menu.w, y-1, subtitle_ctr_x, "%s", SUBTITLE_MENU);
+}
+
+void draw_menu(void)
+{
+    draw_menu_titles();
+    draw_menu_items();
+}
+
+void draw_viewer_title(void)
+{
     int x = ui.view.max.x;
     int offset;
 
@@ -218,46 +232,80 @@ void draw_viewer(void)
     offset = (title_len/2) + (title_len%2);
     int title_ctr_x = x/2 - offset;
     mvwprintw(ui.view.w, 0, title_ctr_x, "%s", TITLE_VIEW);
+}
 
+void draw_viewer_track_name(void)
+{
+    int y = ui.view.max.y;
+    int x = ui.view.max.x;
+    int max_cols = x - BORDER_SIZE;
+    const char *name = player.curr_track;
+    int track_len = strlen(name);
+
+    wattrset(ui.view.w, COLOR_PAIR(1) | A_BOLD);
+    if (track_len > max_cols) {
+        char short_name[max_cols+1];
+        snprintf(short_name, max_cols+1, "%s", name);
+        mvwprintw(ui.view.w, y/2, 1, "%s", short_name);
+    } else {
+        int offset = (track_len/2) + (track_len%2);
+        int track_ctr_x = x/2 - offset;
+        mvwprintw(ui.view.w, y/2, track_ctr_x, "%s", name);
+    }
+    wattroff(ui.view.w, COLOR_PAIR(1) | A_BOLD);
+}
+
+void draw_viewer_shuffle_indicator(void)
+{
+    int y = ui.view.max.y;
+    int x = ui.view.max.x;
+    int ctr_x = x/2 - (strlen("[Shuffle]") / 2) - 1;
+
+    wattrset(ui.view.w, COLOR_PAIR(2));
+    mvwprintw(ui.view.w, y-2, ctr_x, "[Shuffle]");
+    wattroff(ui.view.w, COLOR_PAIR(2));
+}
+
+void draw_viewer_autoplay_indicator(void)
+{
+    int y = ui.view.max.y;
+    int x = ui.view.max.x;
+    int ctr_x = x/2 - (strlen("[Auto-Play]") / 2) - 1;
+
+    wattrset(ui.view.w, COLOR_PAIR(2));
+    mvwprintw(ui.view.w, y-2, ctr_x, "[Auto-Play]");
+    wattroff(ui.view.w, COLOR_PAIR(2));
+}
+
+void draw_viewer_paused_indicator(void)
+{
+    int y = ui.view.max.y;
+    int x = ui.view.max.x;
+    int ctr_x = x/2 - strlen("> PAUSE <") - 1;
+
+    mvwprintw(ui.view.w, y-1, ctr_x, "> PAUSE <");
+}
+
+void draw_viewer(void)
+{
+    draw_viewer_title();
     if (player.playing) {
-        int max_cols = x - 2; /* -2 for border */
-        const char *name = player.curr_track;
-        int track_len = strlen(name);
-        wattrset(ui.view.w, COLOR_PAIR(1) | A_BOLD);
-        if (track_len > max_cols) {
-            char short_name[max_cols+1];
-            snprintf(short_name, max_cols+1, "%s", name);
-            mvwprintw(ui.view.w, y/2, 1, "%s", short_name);
-        } else {
-            offset = (track_len/2) + (track_len%2);
-            int track_ctr_x = x/2 - offset;
-            mvwprintw(ui.view.w, y/2, track_ctr_x, "%s", name);
-        }
-        wattroff(ui.view.w, COLOR_PAIR(1) | A_BOLD);
+        draw_viewer_track_name();
     }
-
     if (player.shuffle) {
-        wattrset(ui.view.w, COLOR_PAIR(2));
-        int ctr_x = x/2 - 5; /* Centering for "[Shuffle]" */
-        mvwprintw(ui.view.w, y-2, ctr_x, "[Shuffle]");
-        wattroff(ui.view.w, COLOR_PAIR(2));
+        draw_viewer_shuffle_indicator();
     } else if (player.autoplay) {
-        wattrset(ui.view.w, COLOR_PAIR(2));
-        int ctr_x = x/2 - 6; /* Centering for "[Autoplay]" */
-        mvwprintw(ui.view.w, y-2, ctr_x, "[Auto-Play]");
-        wattroff(ui.view.w, COLOR_PAIR(2));
+        draw_viewer_autoplay_indicator();
     }
-
     if (player.paused) {
-        int ctr_x = x/2 - 5; /* Centering for "> PAUSE <" */
-        mvwprintw(ui.view.w, y-1, ctr_x, "> PAUSE <");
+        draw_viewer_paused_indicator();
     }
 }
 
 void resize_items(void)
 {
     if (ui.menu.offset_idx != 0) {
-        int max_rows = ui.max.y - 2; /* -2 for border */
+        int max_rows = ui.max.y - BORDER_SIZE;
         if (max_rows >= (int)songarr->size) {
             /* Reset offset index if window is large enough */
             ui.menu.offset_idx = 0;
@@ -287,7 +335,7 @@ void item_scroll_up(void)
 
 void item_scroll_bottom(void)
 {
-    int max_rows = ui.max.y - 2; /* -2 for border */
+    int max_rows = ui.max.y - BORDER_SIZE;
     int diff = (int)songarr->size - max_rows;
     ui.menu.offset_idx = diff;
     clear_window(ui.menu.w);
@@ -303,7 +351,7 @@ void item_scroll_top(void)
 
 void cursor_scroll_down(void)
 {
-    int max_rows = ui.max.y - 2; /* -2 for border */
+    int max_rows = ui.max.y - BORDER_SIZE;
     int items = (int)songarr->size;
     int off_scr = items - max_rows;
 
@@ -335,7 +383,7 @@ void cursor_scroll_up(void)
 
 void cursor_scroll_bottom(void)
 {
-    int max_rows = ui.max.y - 2; /* -2 for border */
+    int max_rows = ui.max.y - BORDER_SIZE;
     if (max_rows > (int)songarr->size) {
         ui.curs.y = songarr->size;
     } else {
@@ -354,7 +402,7 @@ void cursor_scroll_top(void)
 
 void cursor_move_pos(void)
 {
-    int max_rows = ui.max.y - 2; /* -2 for border */
+    int max_rows = ui.max.y - BORDER_SIZE;
     if (ui.curs.y > max_rows) {
         ui.curs.y = max_rows;
     }
@@ -427,124 +475,155 @@ int event_prev(void)
     return idx;
 }
 
+void handle_key_resize(void)
+{
+    update_maxyx();
+    resize_windows();
+    resize_items();
+    clear_window(ui.menu.w);
+    clear_window(ui.view.w);
+    draw_menu();
+    draw_viewer();
+    refresh_windows();
+}
+
+void handle_key_enter(void)
+{
+    if (player.shuffle) {
+        player.shuffle = false;
+    }
+    int idx = ui.menu.offset_idx + ui.curs.y - 1;
+    event_playsong(idx);
+    clear_window(ui.view.w);
+    draw_viewer();
+    wrefresh(ui.view.w);
+}
+
+void handle_key_left(void)
+{
+    if (player.playing) {
+        mpv_seek(-5);
+    }
+}
+
+void handle_key_right(void)
+{
+    if (player.playing) {
+        mpv_seek(5);
+    }
+}
+
+void handle_prev_song(void)
+{
+    if (!player.playing) {
+        return;
+    }
+    int idx = event_prev();
+
+    event_playsong(idx);
+    clear_window(ui.view.w);
+    draw_viewer();
+    wrefresh(ui.view.w);
+}
+
+void handle_next_song(void)
+{
+    if (!player.playing) {
+        return;
+    }
+    int idx = event_next();
+    if (idx >= (int)songarr->size) {
+        return;
+    }
+
+    event_playsong(idx);
+    clear_window(ui.view.w);
+    draw_viewer();
+    wrefresh(ui.view.w);
+}
+
+void handle_toggle_pause(void)
+{
+    mpv_cycle_pause();
+    player.paused = !player.paused;
+    clear_window(ui.view.w);
+    draw_viewer();
+    wrefresh(ui.view.w);
+}
+
+void handle_toggle_autoplay(void)
+{
+    player.autoplay = !player.autoplay;
+    clear_window(ui.view.w);
+    draw_viewer();
+    wrefresh(ui.view.w);
+}
+
+void handle_toggle_shuffle(void)
+{
+    event_shuffle();
+    event_playsong(player.shuffle_idx);
+    clear_window(ui.view.w);
+    draw_viewer();
+    wrefresh(ui.view.w);
+}
+
 void switch_keypress(int key)
 {
     switch (key) {
         case KEY_RESIZE: {
-            update_maxyx();
-            resize_windows();
-            resize_items();
-            clear_window(ui.menu.w);
-            clear_window(ui.view.w);
-            draw_menu();
-            draw_viewer();
-            refresh_windows();
-            break;
-        }
+            handle_key_resize();
+        } break;
         case 'k':
         case KEY_UP: {
             cursor_scroll_up();
-            break;
-        }
+        } break;
         case 'g': {
             cursor_scroll_top();
-            break;
-        }
+        } break;
         case 'j':
         case KEY_DOWN: {
             cursor_scroll_down();
-            break;
-        }
+        } break;
         case 'G': {
             cursor_scroll_bottom();
-            break;
-        }
+        } break;
         case '\n':
         case KEY_ENTER: {
-            if (player.shuffle) {
-                player.shuffle = false;
-            }
-            int idx = ui.menu.offset_idx + ui.curs.y - 1;
-            event_playsong(idx);
-            clear_window(ui.view.w);
-            draw_viewer();
-            wrefresh(ui.view.w);
-            break;
-        }
+            handle_key_enter();
+        } break;
         case KEY_LEFT: {
-            if (player.playing) {
-                mpv_seek(-5);
-            }
-            break;
-        }
+            handle_key_left();
+        } break;
         case KEY_RIGHT: {
-            if (player.playing) {
-                mpv_seek(5);
-            }
-            break;
-        }
+            handle_key_right();
+        } break;
         case '+':
         case '=': {
             mpv_volume(5);
-            break;
-        }
+        } break;
         case '-': {
             mpv_volume(-5);
-            break;
-        }
+        } break;
         case ',': {
-            if (!player.playing) {
-                break;
-            }
-            int idx = event_prev();
-            event_playsong(idx);
-            clear_window(ui.view.w);
-            draw_viewer();
-            wrefresh(ui.view.w);
-            break;
-        }
+            handle_prev_song();
+        } break;
         case '.': {
-            if (!player.playing) {
-                break;
-            }
-            int idx = event_next();
-            if (idx >= (int)songarr->size) {
-                break;
-            }
-            event_playsong(idx);
-            clear_window(ui.view.w);
-            draw_viewer();
-            wrefresh(ui.view.w);
-            break;
-        }
+            handle_next_song();
+        } break;
         case ' ':
         case 'p': {
-            mpv_cycle_pause();
-            player.paused = !player.paused;
-            clear_window(ui.view.w);
-            draw_viewer();
-            wrefresh(ui.view.w);
-            break;
-        }
+            handle_toggle_pause();
+        } break;
         case 'a': {
-            player.autoplay = !player.autoplay;
-            clear_window(ui.view.w);
-            draw_viewer();
-            wrefresh(ui.view.w);
-            break;
-        }
+            handle_toggle_autoplay();
+        } break;
         case 's': {
-            event_shuffle();
-            event_playsong(player.shuffle_idx);
-            clear_window(ui.view.w);
-            draw_viewer();
-            wrefresh(ui.view.w);
-            break;
-        }
+            handle_toggle_shuffle();
+        } break;
         case 'q': {
             running = LOOP_STOP;
-            break;
-        }
+        } break;
         default: break;
     }
 }
@@ -637,73 +716,94 @@ void handle_sigint(int sig)
     running = LOOP_STOP;
 }
 
-int main(int argc, char *argv[])
+bool init_signal_handler(void)
 {
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <music-dirname>\n", argv[0]);
-        return 1;
-    }
-    srand((unsigned) time(NULL));
-
-    /* Setup SIGINT handler */
     struct sigaction sa;
     sa.sa_handler = handle_sigint;
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
     if (sigaction(SIGINT, &sa, NULL) == -1) {
         fprintf(stderr, "Error, sigaction failed\n");
-        return 1;
+        return false;
     }
+    return true;
+}
 
-    /* Build song playlist */
-    songarr = songarr_init(argv[1]);
+bool init_song_playlist(const char *dir_name)
+{
+    songarr = songarr_init(dir_name);
     if (songarr == NULL) {
-        fprintf(stderr, "Error reading from directory: %s\n", argv[1]);
-        return 1;
+        fprintf(stderr, "Error reading from directory: %s\n", dir_name);
+        return false;
     }
     songarr_initialized = true;
+    return true;
+}
 
-    /* Setup player struct */
+bool init_player(void)
+{
     if (!player_init(songarr->size)) {
         fprintf(stderr, "Error initializing player\n");
-        cleanup();
-        return 1;
+        return false;
     }
     player_initialized = true;
+    return true;
+}
 
-    /* Initialize MPV */
+bool init_mpv_proc(void)
+{
     int mpv_fd = mpv_init();
     if (mpv_fd == -1) {
         fprintf(stderr, "Error initializing MPV\n");
-        cleanup();
-        return 1;
+        return false;
     }
-    mpv_initialized = true;
 
-    /* Setup polling. */
     fds[0].fd = mpv_fd;
     fds[0].events = POLLIN;
     fds[1].fd = STDIN_FILENO;
     fds[1].events = POLLIN;
+    mpv_initialized = true;
+    return true;
+}
 
-    /* Initialize ncurses */
+bool init_ncurses(void)
+{
     if (!ui_init_core()) {
         fprintf(stderr, "Error initializing MPV\n");
-        cleanup();
-        return 1;
+        return false;
     }
     if (!ui_init_windows()) {
         fprintf(stderr, "Error initializing MPV\n");
         endwin();
-        cleanup();
-        return 1;
+        return false;
     }
     ui_init_colors();
     ncurses_initialized = true;
+    return true;
+}
+
+bool init_reed(char *argv[])
+{
+    atexit(cleanup);
+    srand((unsigned) time(NULL));
+    if (!init_signal_handler())       return false;
+    if (!init_song_playlist(argv[1])) return false;
+    if (!init_player())               return false;
+    if (!init_mpv_proc())             return false;
+    if (!init_ncurses())              return false;
+    return true;
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <music-dirname>\n", argv[0]);
+        return 1;
+    }
+    if (!init_reed(argv)) return 2;
 
     event_loop();
 
-    cleanup();
     return 0;
 }
 
