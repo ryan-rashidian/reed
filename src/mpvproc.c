@@ -1,5 +1,4 @@
 /* File: mpvproc.c
- * Date: 2026-02-04
  *
  * MPV process forking and communication.
  */
@@ -31,7 +30,7 @@
 struct ProcMPV {
     pid_t pid;
     int fd;
-} pmpv;
+} proc_mpv;
 
 static bool wait_for_socket(void)
 {
@@ -39,7 +38,7 @@ static bool wait_for_socket(void)
     int timed_out = 0;
     while (stat(UDS_PATH, &st) == -1) {
         if (timed_out > 15) {
-            /* Give up after 1.5 seconds */
+            // Give up after 1.5 seconds
             fprintf(stderr, "Failed to detect UDS.\n");
             return false;
         }
@@ -52,16 +51,18 @@ static bool wait_for_socket(void)
 
 static bool connect_to_mpv(void)
 {
-    pmpv.fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    proc_mpv.fd = socket(AF_UNIX, SOCK_STREAM, 0);
     struct sockaddr_un addr = {0};
     addr.sun_family = AF_UNIX;
     strcpy(addr.sun_path, UDS_PATH);
 
     int timed_out = 0;
-    while (connect(pmpv.fd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+    while (connect(proc_mpv.fd,
+                   (const struct sockaddr *)&addr,
+                   (socklen_t)sizeof(addr)) == -1) {
         // Sleep until MPV is listening on the socket
         if (timed_out > 15) {
-            /* Give up after 1.5 seconds */
+            // Give up after 1.5 seconds
             fprintf(stderr, "Failed to connect to MPV\n");
             return false;
         }
@@ -74,25 +75,25 @@ static bool connect_to_mpv(void)
 
 void mpv_terminate(void)
 {
-    kill(pmpv.pid, SIGTERM);
-    close(pmpv.fd);
+    kill(proc_mpv.pid, SIGTERM);
+    close(proc_mpv.fd);
 }
 
 int mpv_init(void)
 {
-    pmpv.pid = fork();
+    proc_mpv.pid = fork();
     
-    if (pmpv.pid == 0) {
+    if (proc_mpv.pid == 0) {
         execl(
             "/usr/bin/mpv",
             "mpv",
             "--input-ipc-server=/tmp/mpv.sock",
             "--idle",
             "--no-terminal",
-            (char *) NULL
+            (char *)NULL
         );
         fprintf(stderr, "Error, unable to start MPV\n");
-        _exit(127); /* 127: Command not found in PATH */
+        _exit(127); // 127: Command not found in PATH
     } else {
         if (!wait_for_socket()) {
             return -1;
@@ -102,33 +103,33 @@ int mpv_init(void)
         }
     }
 
-    return pmpv.fd;
+    return proc_mpv.fd;
 }
 
 void mpv_load_song(const char *path)
 {
     char buf[1024];
     snprintf(buf, sizeof(buf), CMD_LOAD, path);
-    write(pmpv.fd, buf, strlen(buf));
+    write(proc_mpv.fd, buf, strlen(buf));
 }
 
 void mpv_cycle_pause(void)
 {
-    write(pmpv.fd, CMD_PAUSE, strlen(CMD_PAUSE));
+    write(proc_mpv.fd, CMD_PAUSE, strlen(CMD_PAUSE));
 }
 
 void mpv_seek(int time)
 {
     char buf[1024];
     snprintf(buf, sizeof(buf), CMD_SEEK, time);
-    write(pmpv.fd, buf, strlen(buf));
+    write(proc_mpv.fd, buf, strlen(buf));
 }
 
 void mpv_volume(int vol)
 {
     char buf[1024];
     snprintf(buf, sizeof(buf), CMD_VOL, vol);
-    write(pmpv.fd, buf, strlen(buf));
+    write(proc_mpv.fd, buf, strlen(buf));
 }
 
 typedef enum {

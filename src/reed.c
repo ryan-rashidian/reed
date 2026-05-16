@@ -1,7 +1,6 @@
 /* File: reed.c
- * Date: 2026-02-04
  *
- * TUI implementation with ncurses.
+ * MPV music player TUI implementated with ncurses.
  */
 
 #include <ncurses.h>

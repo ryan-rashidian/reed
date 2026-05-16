@@ -1,7 +1,6 @@
 /* File: songarr.c
- * Date: 2026-02-04
  *
- * SongArr ADT.
+ * Song array.
  */
 
 #define _DEFAULT_SOURCE

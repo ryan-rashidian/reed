@@ -1,7 +1,6 @@
 /* File: songarr.h
- * Date: 2026-02-04
  *
- * SongArr ADT.
+ * Song array.
  */
 
 #ifndef SONGARR_H

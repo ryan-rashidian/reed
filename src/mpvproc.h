@@ -1,5 +1,4 @@
 /* File: mpvproc.h
- * Date: 2026-02-04
  *
  * MPV process forking and communication.
  */
