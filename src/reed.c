@@ -34,7 +34,7 @@ bool mpv_initialized     = false;
 bool ncurses_initialized = false;
 
 volatile sig_atomic_t running = LOOP_RUN;
-SongArr *songarr;
+SongArr *song_arr;
 struct pollfd fds[2];
 
 struct PlayerState {
@@ -187,8 +187,8 @@ void draw_menu_items(void)
     int max_rows = ui.menu.max.y - BORDER_SIZE;
     int j = ui.menu.offset_idx;
     wattrset(ui.menu.w, COLOR_PAIR(1));
-    for (int row = 0; row < max_rows && j < (int)songarr->size; row++, j++) {
-        const char *name = songarr->arr[j].name;
+    for (int row = 0; row < max_rows && j < (int)song_arr->size; row++, j++) {
+        const char *name = song_arr->arr[j].name;
         int str_len = strlen(name);
         if (str_len > max_cols) {
             char short_name[max_cols+1];
@@ -306,12 +306,12 @@ void resize_items(void)
 {
     if (ui.menu.offset_idx != 0) {
         int max_rows = ui.max.y - BORDER_SIZE;
-        if (max_rows >= (int)songarr->size) {
+        if (max_rows >= (int)song_arr->size) {
             /* Reset offset index if window is large enough */
             ui.menu.offset_idx = 0;
         } else {
             /* Show more items if window is large enough */
-            int diff = (int)songarr->size - max_rows;
+            int diff = (int)song_arr->size - max_rows;
             if (diff < ui.menu.offset_idx) {
                 ui.menu.offset_idx = diff;
             }
@@ -336,7 +336,7 @@ void item_scroll_up(void)
 void item_scroll_bottom(void)
 {
     int max_rows = ui.max.y - BORDER_SIZE;
-    int diff = (int)songarr->size - max_rows;
+    int diff = (int)song_arr->size - max_rows;
     ui.menu.offset_idx = diff;
     clear_window(ui.menu.w);
     draw_menu();
@@ -352,7 +352,7 @@ void item_scroll_top(void)
 void cursor_scroll_down(void)
 {
     int max_rows = ui.max.y - BORDER_SIZE;
-    int items = (int)songarr->size;
+    int items = (int)song_arr->size;
     int off_scr = items - max_rows;
 
     if (ui.curs.y >= max_rows) {
@@ -384,8 +384,8 @@ void cursor_scroll_up(void)
 void cursor_scroll_bottom(void)
 {
     int max_rows = ui.max.y - BORDER_SIZE;
-    if (max_rows > (int)songarr->size) {
-        ui.curs.y = songarr->size;
+    if (max_rows > (int)song_arr->size) {
+        ui.curs.y = song_arr->size;
     } else {
         ui.curs.y = max_rows;
         item_scroll_bottom();
@@ -414,7 +414,7 @@ void cursor_move_pos(void)
 
 int validate_idx(int idx)
 {
-    if (idx >= (int)songarr->size) {
+    if (idx >= (int)song_arr->size) {
         return -1;
     } else if (idx < 0) {
         idx = 0;
@@ -432,18 +432,18 @@ void event_playsong(int idx)
     if ((idx = validate_idx(idx)) == -1) {
         return;
     }
-    mpv_load_song(songarr->arr[idx].path);
+    mpv_load_song(song_arr->arr[idx].path);
     player.playing = true;
     strncpy(
         player.curr_track,
-        songarr->arr[idx].name,
+        song_arr->arr[idx].name,
         (size_t)MAX_SONGTITLE_LEN
     );
 }
 
 void event_shuffle(void)
 {
-    for (int i = (int)songarr->size - 1; i > 0; i--) {
+    for (int i = (int)song_arr->size - 1; i > 0; i--) {
         int j = rand() % (i + 1);
         int tmp = player.order[i];
         player.order[i] = player.order[j];
@@ -532,7 +532,7 @@ void handle_next_song(void)
         return;
     }
     int idx = event_next();
-    if (idx >= (int)songarr->size) {
+    if (idx >= (int)song_arr->size) {
         return;
     }
 
@@ -631,7 +631,7 @@ void switch_keypress(int key)
 void eof_event_shuffle(void)
 {
     int idx = player.shuffle_idx + 1;
-    if (idx >= (int)songarr->size) {
+    if (idx >= (int)song_arr->size) {
         player.playing = false;
         player.shuffle = false;
     } else {
@@ -642,7 +642,7 @@ void eof_event_shuffle(void)
 void eof_event_autoplay(void)
 {
     int idx = player.curr_idx + 1;
-    if (idx >= (int)songarr->size) {
+    if (idx >= (int)song_arr->size) {
         player.playing = false;
     } else {
         event_playsong(player.curr_idx+1);
@@ -706,7 +706,7 @@ void cleanup(void)
         free(player.order);
     }
     if (songarr_initialized) {
-        songarr_destroy(songarr);
+        song_arr_destroy(song_arr);
     }
 }
 
@@ -731,8 +731,8 @@ bool init_signal_handler(void)
 
 bool init_song_playlist(const char *dir_name)
 {
-    songarr = songarr_init(dir_name);
-    if (songarr == NULL) {
+    song_arr = song_arr_init(dir_name);
+    if (song_arr == NULL) {
         fprintf(stderr, "Error reading from directory: %s\n", dir_name);
         return false;
     }
@@ -742,7 +742,7 @@ bool init_song_playlist(const char *dir_name)
 
 bool init_player(void)
 {
-    if (!player_init(songarr->size)) {
+    if (!player_init(song_arr->size)) {
         fprintf(stderr, "Error initializing player\n");
         return false;
     }

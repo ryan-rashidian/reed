@@ -1,21 +1,21 @@
-/* File: songarr.c
+/* 
+ * File: songarr.c
  *
- * Song array.
+ * Song playlist array.
  */
 
-#define _DEFAULT_SOURCE
 #include <dirent.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include "songarr.h"
 
-#define FILEARR_INIT_CAP 32
+#define FILE_ARR_START_CAP 32
 
 int compare_songnames(const void *p, const void *q)
 {
-    SFile *song1 = (SFile *)p;
-    SFile *song2 = (SFile *)q;
+    SongFile *song1 = (SongFile *)p;
+    SongFile *song2 = (SongFile *)q;
 
     if (strcmp(song1->name, song2->name) < 0) {
         return -1;
@@ -41,7 +41,7 @@ static char *cat_path(const char *root, const char *branch)
     return full_path;
 }
 
-static bool create_sfile(SFile *sf, const char *entry, const char *dirname)
+static bool create_sfile(SongFile *sf, const char *entry, const char *dirname)
 {
     sf->name = malloc(strlen(entry)+1);
     if (sf->name == NULL) {
@@ -58,26 +58,27 @@ static bool create_sfile(SFile *sf, const char *entry, const char *dirname)
     return true;
 }
 
-static bool songarr_realloc_check(SongArr *songarr)
+static bool songarr_realloc_check(SongArr *song_arr)
 {
-    if (songarr->size >= songarr->cap) {
-        songarr->cap *= 2;
-        SFile *tmp = realloc(songarr->arr, songarr->cap * sizeof(SFile));
+    if (song_arr->size >= song_arr->cap) {
+        song_arr->cap *= 2;
+        size_t new_size = song_arr->cap * sizeof(SongFile);
+        SongFile *tmp = realloc(song_arr->arr, new_size);
         if (tmp == NULL) {
             return false;
         }
-        songarr->arr = tmp;
+        song_arr->arr = tmp;
     }
     return true;
 }
 
-static bool scan_dir(const char *dirname, SongArr *songarr)
+static bool scan_dir(const char *dir_name, SongArr *song_arr)
 {
     DIR *pdir;
     struct dirent *entry;
     bool exit_status = false;
 
-    if ((pdir = opendir(dirname)) == NULL) {
+    if ((pdir = opendir(dir_name)) == NULL) {
         goto out;
     }
 
@@ -87,11 +88,11 @@ static bool scan_dir(const char *dirname, SongArr *songarr)
                 if (entry->d_name[0] == '.') {
                     break;
                 }
-                char *full_path = cat_path(dirname, entry->d_name);
+                char *full_path = cat_path(dir_name, entry->d_name);
                 if (full_path == NULL) {
                     goto out;
                 }
-                if (!scan_dir(full_path, songarr)) {
+                if (!scan_dir(full_path, song_arr)) {
                     free(full_path);
                     goto out;
                 }
@@ -99,14 +100,14 @@ static bool scan_dir(const char *dirname, SongArr *songarr)
                 break;
             }
             case DT_REG: {
-                if (!songarr_realloc_check(songarr)) {
+                if (!songarr_realloc_check(song_arr)) {
                     goto out;
                 }
-                SFile sf;
-                if (!create_sfile(&sf, entry->d_name, dirname)) {
+                SongFile sf;
+                if (!create_sfile(&sf, entry->d_name, dir_name)) {
                     goto out;
                 }
-                songarr->arr[songarr->size++] = sf;
+                song_arr->arr[song_arr->size++] = sf;
                 break;
             }
             default: break;
@@ -121,36 +122,36 @@ static bool scan_dir(const char *dirname, SongArr *songarr)
     return exit_status;
 }
 
-void songarr_destroy(SongArr *songarr)
+void song_arr_destroy(SongArr *song_arr)
 {
-    for (size_t i = 0; i < songarr->size; i++) {
-        free(songarr->arr[i].name);
-        free(songarr->arr[i].path);
+    for (size_t i = 0; i < song_arr->size; i++) {
+        free(song_arr->arr[i].name);
+        free(song_arr->arr[i].path);
     }
-    free(songarr->arr);
-    free(songarr);
+    free(song_arr->arr);
+    free(song_arr);
 }
 
-SongArr *songarr_init(const char *dirname)
+SongArr *song_arr_init(const char *dir_name)
 {
-    SongArr *songarr = malloc(sizeof(SongArr));
-    if (songarr == NULL) {
+    SongArr *song_arr = malloc(sizeof(SongArr));
+    if (song_arr == NULL) {
         return NULL;
     }
-    songarr->arr = malloc(FILEARR_INIT_CAP * sizeof(SFile));
-    if (songarr->arr == NULL) {
-        free(songarr);
+    song_arr->arr = malloc(FILE_ARR_START_CAP * sizeof(SongFile));
+    if (song_arr->arr == NULL) {
+        free(song_arr);
         return NULL;
     }
 
-    songarr->cap = FILEARR_INIT_CAP;
-    songarr->size = 0;
-    if (!scan_dir(dirname, songarr)) {
-        songarr_destroy(songarr);
+    song_arr->cap = FILE_ARR_START_CAP;
+    song_arr->size = 0;
+    if (!scan_dir(dir_name, song_arr)) {
+        song_arr_destroy(song_arr);
         return NULL;
     }
-    qsort(songarr->arr, songarr->size, sizeof(SFile), compare_songnames);
+    qsort(song_arr->arr, song_arr->size, sizeof(SongFile), compare_songnames);
 
-    return songarr;
+    return song_arr;
 }
 

@@ -1,6 +1,7 @@
-/* File: songarr.h
+/* 
+ * File: songarr.c
  *
- * Song array.
+ * Song playlist array.
  */
 
 #ifndef SONGARR_H
@@ -11,16 +12,16 @@
 typedef struct {
     char *name;
     char *path;
-} SFile;
+} SongFile;
 
 typedef struct {
     size_t size;
     size_t cap;
-    SFile *arr;
+    SongFile *arr;
 } SongArr;
 
-SongArr *songarr_init(const char *dirname);
-void songarr_destroy(SongArr *songarr);
+SongArr *song_arr_init(const char *dir_name);
+void song_arr_destroy(SongArr *song_arr);
 
 #endif
 
