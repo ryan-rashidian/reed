@@ -1,6 +1,5 @@
-/* File: reed.c
- *
- * MPV music player TUI implementated with ncurses.
+/* 
+ * reed - MPV music player TUI implementated with ncurses.
  */
 
 #include <stdbool.h>
@@ -25,19 +24,12 @@
 #define BORDER_SIZE 2
 #define CURSOR_SIZE 3
 
-#define LOOP_RUN 1
-#define LOOP_STOP 0
+enum {
+    LOOP_STOP,
+    LOOP_RUN
+};
 
-bool songarr_initialized = false;
-bool player_initialized  = false;
-bool mpv_initialized     = false;
-bool ncurses_initialized = false;
-
-volatile sig_atomic_t running = LOOP_RUN;
-SongArr *song_arr;
-struct pollfd fds[2];
-
-struct PlayerState {
+typedef struct {
     bool playing;
     bool paused;
     bool autoplay;
@@ -46,12 +38,7 @@ struct PlayerState {
     int shuffle_idx;
     int curr_idx;
     char curr_track[MAX_SONGTITLE_LEN+1];
-} player = {
-    .paused = false,
-    .autoplay = false,
-    .shuffle = false,
-    .curr_track[0] = '\0'
-};
+} PlayerState;
 
 typedef struct {
     int y, x;
@@ -68,12 +55,29 @@ typedef struct {
     RowCol max;
 } View;
 
-struct UI {
+typedef struct {
     Menu menu;
     View view;
     RowCol max;
     RowCol curs;
-} ui = { .curs = {1, 2}, .menu.offset_idx = 0 };
+} UI;
+
+bool songarr_initialized = false;
+bool player_initialized  = false;
+bool mpv_initialized     = false;
+bool ncurses_initialized = false;
+
+static volatile sig_atomic_t running = LOOP_RUN;
+static SongArr *song_arr;
+static struct pollfd fds[2];
+
+static PlayerState player = {
+    .paused = false,
+    .autoplay = false,
+    .shuffle = false,
+    .curr_track[0] = '\0'
+};
+static UI ui = { .curs = {1, 2}, .menu.offset_idx = 0 };
 
 bool player_init(size_t n_songs)
 {
