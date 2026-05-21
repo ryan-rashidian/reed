@@ -1,7 +1,9 @@
 /* 
- * File: songarr.c
+ * songarr - Song playlist array.
  *
- * Song playlist array.
+ * Uses dirent.h (and sys/stat.h as a fallback) to search a directory, and all
+ * of its child directories for files. Currently does not distinguish between
+ * file types, and presumes that all file paths can be passed to MPV.
  */
 
 #ifndef SONGARR_H
